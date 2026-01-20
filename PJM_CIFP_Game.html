@@ -1,0 +1,1006 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Queue Boss: PJM CIFP</title>
+  <style>
+    :root { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; color-scheme: dark; }
+    body { margin: 0; background:#0b0f14; color:#e6edf3; }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 18px; }
+    .topbar { display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    h1 { margin: 0; font-size: 22px; letter-spacing: .2px; }
+    .sub { color:#9fb1c7; margin: 6px 0 12px 0; }
+    .pill { display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:999px; background:#121826; border:1px solid #233044; }
+    select, .toggleBtn { background:#0e1522; color:#e6edf3; border:1px solid #2b3b55; border-radius:10px; padding:7px 10px; font-weight:700; }
+    select { font-weight:700; }
+    .toggleBtn { cursor:pointer; }
+    .toggleBtn[aria-pressed="true"]{ background:#183255; border-color:#3a6fb0; }
+    .row { display:flex; gap:16px; flex-wrap:wrap; }
+    .card { background:#121826; border:1px solid #233044; border-radius:14px; padding:14px; flex:1; min-width:300px; position:relative; }
+    .kpiRow { display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
+    .kpiRow b { color:#d8e6ff; }
+    .meters { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:12px; }
+    .meter { background:#0e1522; border:1px solid #233044; border-radius:12px; padding:10px; position:relative; }
+    .meter label { display:flex; justify-content:space-between; font-size:12px; color:#a9bdd6; }
+    .bar { height:10px; border-radius:10px; background:#223046; overflow:hidden; margin-top:6px; }
+    .fill { height:100%; width:0%; background:#4aa3ff; transition: width .25s ease; }
+    .meterIcon { font-size:14px; margin-right:6px; opacity:.95; }
+    .queue { display:flex; flex-direction:column; gap:10px; }
+    .proj { background:#0e1522; border:1px solid #233044; border-radius:12px; padding:10px; }
+    .proj .top { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+    .tag { font-size:11px; padding:2px 8px; border-radius:999px; border:1px solid #2b3b55; color:#b9cbe2; white-space:nowrap; }
+    .btns { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    button { cursor:pointer; border-radius:10px; border:1px solid #2b3b55; background:#162238; color:#e6edf3; padding:8px 10px; font-weight:800; }
+    button:hover { background:#1b2a45; }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+    .log { max-height: 330px; overflow:auto; font-size: 13px; line-height:1.35; }
+    .log p { margin: 0 0 8px 0; color:#cfe1f7; }
+    .muted { color:#9fb1c7; }
+    .danger { color:#ff8a8a; font-weight:800; }
+    .good { color:#7dffb2; font-weight:800; }
+    .footer { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .status { color:#9fb1c7; }
+
+    .badge{ display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:999px; border:1px solid #2b3b55; background:#0e1522; font-size:11px; font-weight:900; }
+    .resultCard{ border:1px solid #2b3b55; background:#0e1522; border-radius:14px; padding:12px; }
+    .resultGrid{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; }
+    .cardMini{ border:1px solid #233044; background:#0b111b; border-radius:12px; padding:10px; }
+    /* Pending consequences panel */
+    .sidePanel { margin-top:12px; padding:10px; border-radius:12px; border:1px dashed #2b3b55; background:#0c121d; }
+    .sidePanel h3 { margin:0 0 6px 0; font-size:13px; color:#cfe1f7; }
+    .pendingItem { font-size:12px; color:#b9cbe2; margin:0 0 6px 0; display:flex; justify-content:space-between; gap:10px; }
+    /* Event banner */
+    .eventBanner { margin-top:10px; padding:10px; border-radius:12px; border:1px solid #2b3b55; background:#0e1522; }
+    .eventBanner b { display:block; margin-bottom:4px; }
+    .eventBanner .impact { font-size:12px; color:#9fb1c7; }
+    /* Tooltip */
+    .tooltip { position:fixed; z-index:9999; pointer-events:none; background:#0e1522; border:1px solid #2b3b55; padding:10px; border-radius:12px; max-width:320px; box-shadow: 0 10px 30px rgba(0,0,0,.35); display:none; }
+    .tooltip h4 { margin:0 0 4px 0; font-size:12px; color:#d8e6ff; }
+    .tooltip p { margin:0; font-size:12px; color:#b9cbe2; }
+    .tooltip .small { margin-top:6px; font-size:11px; color:#9fb1c7; }
+    /* Modals */
+    .modalBackdrop{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:9998; padding:18px; }
+    .modal{ width:min(720px, 100%); background:#121826; border:1px solid #233044; border-radius:16px; padding:16px; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+    .modal h2{ margin:0 0 6px 0; font-size:18px; }
+    .modal .muted{ margin:0 0 12px 0; }
+    .modal .actions{ display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; margin-top:12px;}
+    .modal .actions button{ padding:8px 12px; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:11px; padding:2px 6px; border-radius:8px; border:1px solid #2b3b55; background:#0e1522; }
+    .callout{ border-left:3px solid #4aa3ff; padding-left:10px; margin-top:10px; }
+    /* Tutorial highlight */
+    .highlight { outline: 3px solid rgba(74,163,255,.9); outline-offset: 4px; border-radius: 14px; }
+    /* Little metaphors */
+    .folders { display:flex; gap:6px; align-items:center; }
+    .folder { width:16px; height:12px; border:1px solid #2b3b55; border-radius:3px; background:#0e1522; position:relative; }
+    .folder:before{ content:""; position:absolute; left:2px; top:-4px; width:10px; height:5px; border:1px solid #2b3b55; border-bottom:none; border-radius:3px 3px 0 0; background:#0c121d; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div>
+      <h1>Queue Boss: PJM CIFP</h1>
+      <div class="sub">Run the queue. Keep the lights on. Teach your inner policy gremlin some manners. <span class="muted" style="font-size:12px;">a game by <b>Prashant Khorana</b></span> <span class="muted" style="font-size:12px;">a game by <b>Prashant Khorana</b></span></div>
+    </div>
+
+    <div class="pill" id="controls">
+      <span class="muted" style="font-size:12px;">Role</span>
+      <select id="roleSel" aria-label="Role">
+        <option value="pjm">PJM Operator</option>
+        <option value="reg">State Regulator</option>
+        <option value="hyper">Hyperscaler</option>
+        <option value="ipp">IPP / Developer</option>
+      </select>
+
+      <button class="toggleBtn" id="modeBtn" aria-pressed="true" title="Toggle ruleset">
+        Post-CIFP rules
+      </button>
+
+      <button class="toggleBtn" id="helpBtn" title="How this works (or press ?)">How this works</button>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="card" id="cardDashboard">
+      <div class="kpiRow">
+        <div><b>Quarter:</b> <span id="round">1</span> / <span id="roundMax">10</span></div>
+        <div class="folders" title="Backlog metaphor: more folders = more study time">
+          <span class="muted" style="font-size:12px;">Backlog</span>
+          <div id="folderStack" style="display:flex;gap:4px;"></div>
+        </div>
+        <div><b>Load Connected:</b> <span id="served">0</span> MW</div>
+      </div>
+
+      <div class="eventBanner" id="eventBanner" style="display:none;"></div>
+
+      <div class="meters" aria-label="Meters" id="meters">
+        <div class="meter" data-meter="rel">
+          <label><span><span class="meterIcon">⚡</span>Reliability Risk</span><span id="mRelVal">20</span></label>
+          <div class="bar"><div class="fill" id="mRel"></div></div>
+        </div>
+        <div class="meter" data-meter="back">
+          <label><span><span class="meterIcon">🗂️</span>Queue Backlog</span><span id="mBackVal">25</span></label>
+          <div class="bar"><div class="fill" id="mBack"></div></div>
+        </div>
+        <div class="meter" data-meter="rate">
+          <label><span><span class="meterIcon">💸</span>Ratepayer Exposure</span><span id="mRateVal">15</span></label>
+          <div class="bar"><div class="fill" id="mRate"></div></div>
+        </div>
+        <div class="meter" data-meter="grow">
+          <label><span><span class="meterIcon">🏗️</span>Economic Growth</span><span id="mGrowVal">30</span></label>
+          <div class="bar"><div class="fill" id="mGrow"></div></div>
+        </div>
+        <div class="meter" style="grid-column:1 / span 2;" data-meter="pol">
+          <label><span><span class="meterIcon">🔥</span>Political Heat</span><span id="mPolVal">10</span></label>
+          <div class="bar"><div class="fill" id="mPol"></div></div>
+        </div>
+      </div>
+
+      <div class="sidePanel" id="pendingPanel">
+        <h3>⏳ Pending consequences (time-delayed pain)</h3>
+        <div id="pendingList" class="muted">None yet. (Don’t worry, you’ll earn some.)</div>
+      </div>
+
+      <div class="footer">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <button id="nextBtn">Next quarter ➜</button>
+          <button id="whyBtn" title="Explain the last meter moves" disabled>Why did this happen?</button>
+        </div>
+        <span class="status" id="status"></span>
+      </div>
+    </div>
+
+    <div class="card" id="cardProjects">
+      <b>Incoming Projects</b>
+      <div class="sub">Pick how to process them. Hover buttons to preview likely consequences.</div>
+      <div class="queue" id="queue"></div>
+    </div>
+
+    <div class="card" id="cardNews">
+      <b>News / Docket</b>
+      <div class="sub">Because every decision deserves a headline.</div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<!-- Help modal -->
+<div class="modalBackdrop" id="helpModal">
+  <div class="modal">
+    <h2>How the game works</h2>
+    <p class="muted">You’re managing the interconnection world during a large-load boom. The trick: speed, fairness, and reliability can’t all be maximized at once. Pick which tradeoffs you can live with.</p>
+    <div class="callout">
+      <p><b>Core loop:</b> each quarter, projects hit the queue. You decide how to process them. Some consequences land immediately; others show up later (and usually at the worst time).</p>
+      <p style="margin-top:8px;"><b>Tip for new grads:</b> don’t chase “perfect” meters. Chase <i>credible</i> projects. CIFP is basically “less fantasy, more deposits.”</p>
+    </div>
+    <p class="muted" style="margin-top:10px;">
+      <span class="kbd">?</span> toggle this • <span class="kbd">Esc</span> close
+    </p>
+    <div class="actions">
+      <button id="startTutorialBtn">Start guided tutorial</button>
+      <button id="closeHelpBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tutorial modal -->
+<div class="modalBackdrop" id="tutModal">
+  <div class="modal">
+    <h2 id="tutTitle">Tutorial</h2>
+    <p class="muted" id="tutBody"></p>
+    <div class="actions">
+      <button id="tutSkipBtn">Skip</button>
+      <button id="tutNextBtn">Next</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Why modal -->
+<div class="modalBackdrop" id="whyModal">
+  <div class="modal">
+    <h2>Why did that happen?</h2>
+    <p class="muted" id="whyLead"></p>
+    <div id="whyBody" class="callout"></div>
+    <div class="actions">
+      <button id="whyCloseBtn">Got it</button>
+    </div>
+  </div>
+</div>
+
+<!-- Results modal (shareable-ish card) -->
+<div class="modalBackdrop" id="resultsModal">
+  <div class="modal">
+    <h2>Results card</h2>
+    <p class="muted" id="resultsLead"></p>
+    <div id="resultsCard" class="resultCard"></div>
+    <div class="actions">
+      <button id="copyResultsBtn">Copy summary</button>
+      <button id="downloadResultsBtn">Download .txt</button>
+      <button id="resultsCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Practice round modal -->
+<div class="modalBackdrop" id="practiceModal">
+  <div class="modal">
+    <h2>Practice round (90 seconds)</h2>
+    <p class="muted">Before the full game, do one safe practice move. You’ll get an instant explanation of what changed and why.</p>
+    <div class="callout">
+      <div><b>Goal:</b> click one action on the single project in the queue.</div>
+      <div class="muted" style="margin-top:8px;">Tip: hover an action button to preview consequences.</div>
+    </div>
+    <div class="actions">
+      <button id="practiceStartBtn">Start practice</button>
+      <button id="practiceSkipBtn">Skip</button>
+    </div>
+  </div>
+</div>
+
+<!-- End-of-round recap modal -->
+<div class="modalBackdrop" id="recapModal">
+  <div class="modal">
+    <h2>Quarter recap</h2>
+    <p class="muted" id="recapLead"></p>
+    <div id="recapBullets" style="margin-top:8px;"></div>
+    <div class="actions">
+      <button id="recapCloseBtn">Continue</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const roundMax = 10;
+
+  // Roles change "what winning means" (and what gets you yelled at)
+  const ROLES = {
+    pjm: { name:"PJM Operator", targets:{ served:4000, relMax:85, rateMax:75, polMax:85 }, flavorWin:"You made it through. No major events, no political coup. That’s basically a perfect season.",
+           flavorLose:"You didn’t just lose — you created a docket." },
+    reg: { name:"State Regulator", targets:{ served:2800, relMax:90, rateMax:55, polMax:80 }, flavorWin:"Ratepayers protected, reliability intact, and you still got some MW online. The hearing went… fine-ish.",
+           flavorLose:"You got the worst sentence in energy: 'why didn’t you stop this earlier?'" },
+    hyper:{ name:"Hyperscaler", targets:{ served:5200, relMax:92, rateMax:88, polMax:92 }, flavorWin:"Time-to-power achieved. Your GPU racks are humming and your CFO is smug.",
+           flavorLose:"Your campus slipped. Somewhere, a competitor just ordered more H100s." },
+    ipp:  { name:"IPP / Developer", targets:{ served:3600, relMax:90, rateMax:82, polMax:90 }, flavorWin:"You threaded the needle: enough MW online to monetize, not enough chaos to get regulated to death.",
+           flavorLose:"Development optionality got nuked. Your IRR deck is now a horror novella." },
+  };
+
+  // Post-CIFP vs Pre-CIFP ruleset toggle
+  const RULESETS = {
+    post: {
+      name:"Post-CIFP rules",
+      // Security and milestones are more effective; speculation is punished more
+      securityRateReduction: 10,
+      securityBackReductionFactor: 7,
+      acceptLoadRiskFactor: 1.0,
+      acceptLoadBackFactor: 1.0,
+      milestonePenalty: 1.0,
+      clusterBenefit: 1.0
+    },
+    pre: {
+      name:"Pre-CIFP rules",
+      // Less discipline: security is weaker and backlog grows easier
+      securityRateReduction: 6,
+      securityBackReductionFactor: 4,
+      acceptLoadRiskFactor: 1.15,
+      acceptLoadBackFactor: 1.2,
+      milestonePenalty: 1.25,
+      clusterBenefit: 0.85
+    }
+  };
+
+  const METER_TOOLTIPS = {
+    rel: { title:"Reliability Risk", body:"Rises when load outpaces studies/upgrades or when uncertainty piles up. In the real world, this is what gets people on TV with grim faces.", small:"Push it too high and you trigger a reliability event." },
+    back:{ title:"Queue Backlog", body:"Measures how clogged the study process is. High backlog = years of 'we’re still studying it'.", small:"Backlog also raises reliability risk over time." },
+    rate:{ title:"Ratepayer Exposure", body:"Who pays for upgrades when projects are speculative or churn. CIFP-style security is basically: 'no free-riding'.", small:"Regulators hate surprise bills. So do voters." },
+    grow:{ title:"Economic Growth", body:"More MW connected = more investment and jobs. But growth without upgrades is just a future problem with good vibes.", small:"High growth helps… until it pushes reliability/politics too far." },
+    pol: { title:"Political Heat", body:"How close you are to being 'solved' by a press conference. Increases with chaos, perceived unfairness, or rate impacts.", small:"If this hits the ceiling, you get overridden." },
+  };
+
+  const ACTION_PREVIEWS = {
+    accept: "Fast today, pain later. Good for growth, usually bad for backlog (and sometimes reliability).",
+    defer: "Avoids immediate risk, but backlog doesn’t magically disappear.",
+    reject:"Protects the system, but sends investment elsewhere (and politicians notice).",
+    skin:  "CIFP energy: reduces free-riding and speeds credible projects. Complaints may occur.",
+    cluster:"More efficient long-run studies; short-run politics and coordination pain."
+  };
+
+  const EVENTS = [
+    { title:"Local headline: 'Data center wave hits the region'", text:"Queue volume spikes and everyone suddenly becomes an interconnection expert.", delta:{ back:+6, pol:+3 } },
+    { title:"Utility warns of upgrade lead times", text:"Transformers and breakers aren’t summoned by vibes.", delta:{ back:+3, rel:+2 } },
+    { title:"Governor demands 'no ratepayer subsidy'", text:"You’ll need better cost allocation and more deposits.", delta:{ rate:+2, pol:+4 } },
+    { title:"Merchant gen re-enters the chat", text:"Higher capacity prices make projects real again.", delta:{ rel:-2, grow:+2, pol:-1 } },
+    { title:"Permitting delays spread", text:"A bunch of 'ready' projects are… not ready.", delta:{ back:+4 } },
+  ];
+
+  function clamp(n){ return Math.max(0, Math.min(100, Math.round(n))); }
+  function rint(a,b){ return Math.floor(a + Math.random()*(b-a+1)); }
+  function rfloat(a,b){ return a + Math.random()*(b-a); }
+
+  const TYPES = [
+    { key:"DC", label:"Data Center Load", baseMW:[200,1200], readiness:[0.2, 0.9], risk:+8, growth:+12 },
+    { key:"IND", label:"Industrial Load", baseMW:[100,600], readiness:[0.3, 0.85], risk:+5, growth:+9 },
+    { key:"GEN_GAS", label:"Gas Gen", baseMW:[300,900], readiness:[0.35,0.9], risk:-6, growth:+4 },
+    { key:"GEN_RE", label:"Solar+Storage", baseMW:[100,500], readiness:[0.25,0.8], risk:-3, growth:+5 },
+    { key:"TX", label:"Transmission Upgrade", baseMW:[0,0], readiness:[0.4,0.8], risk:-10, growth:+2 },
+  ];
+
+  const state = {
+    round: 1,
+    servedMW: 0,
+    meters: { rel:20, back:25, rate:15, grow:30, pol:10 },
+    queue: [],
+    pending: [], // {in, desc, apply}
+    over: false,
+    roleKey: "pjm",
+    rulesetKey: "post",
+    lastQuarterDeltas: null
+  };
+
+  function ruleset(){ return RULESETS[state.rulesetKey]; }
+  function role(){ return ROLES[state.roleKey]; }
+
+  // Tooltip helper
+  const tooltip = document.getElementById("tooltip");
+  function showTip(x,y, title, body, small){
+    tooltip.style.left = (x+14) + "px";
+    tooltip.style.top  = (y+14) + "px";
+    tooltip.innerHTML = `<h4>${title}</h4><p>${body}</p>${small?`<div class="small">${small}</div>`:""}`;
+    tooltip.style.display = "block";
+  }
+  function hideTip(){ tooltip.style.display = "none"; }
+
+  // Log
+  function addLog(msg, cls="") {
+    const el = document.getElementById("log");
+    const p = document.createElement("p");
+    if (cls) p.className = cls;
+    p.textContent = msg;
+    el.prepend(p);
+  }
+
+  function meterDelta(d) {
+    for (const k in d) state.meters[k] = clamp(state.meters[k] + d[k]);
+  }
+
+  function renderFolderStack(){
+    const el = document.getElementById("folderStack");
+    el.innerHTML = "";
+    const n = Math.max(1, Math.min(8, Math.round(state.meters.back/12)));
+    for(let i=0;i<n;i++){
+      const f=document.createElement("div");
+      f.className="folder";
+      el.appendChild(f);
+    }
+  }
+
+  function renderMeters(){
+    const m = state.meters;
+    const map = [
+      ["rel","mRel","mRelVal"],
+      ["back","mBack","mBackVal"],
+      ["rate","mRate","mRateVal"],
+      ["grow","mGrow","mGrowVal"],
+      ["pol","mPol","mPolVal"],
+    ];
+    for (const [k,bar,val] of map) {
+      document.getElementById(bar).style.width = m[k] + "%";
+      document.getElementById(val).textContent = m[k];
+    }
+    document.getElementById("round").textContent = state.round;
+    document.getElementById("roundMax").textContent = roundMax;
+    document.getElementById("served").textContent = state.servedMW;
+    renderFolderStack();
+  }
+
+  function renderPending(){
+    const box = document.getElementById("pendingList");
+    if (!state.pending.length){
+      box.className = "muted";
+      box.textContent = "None yet. (Don’t worry, you’ll earn some.)";
+      return;
+    }
+    box.className = "";
+    box.innerHTML = "";
+    state.pending
+      .slice()
+      .sort((a,b)=>a.in-b.in)
+      .forEach(p=>{
+        const row=document.createElement("div");
+        row.className="pendingItem";
+        row.innerHTML = `<span>${p.desc}</span><span class="tag">in ${p.in}Q</span>`;
+        box.appendChild(row);
+      });
+  }
+
+  function genProject() {
+    const t = TYPES[rint(0, TYPES.length-1)];
+    const mw = (t.key === "TX") ? 0 : rint(t.baseMW[0], t.baseMW[1]);
+    const readiness = rfloat(t.readiness[0], t.readiness[1]);
+    const upgradeNeed = (t.key === "DC" || t.key === "IND") ? rfloat(0.2, 0.9) : rfloat(0.1, 0.6);
+    return {
+      id: crypto.randomUUID().slice(0,8),
+      type: t.key,
+      label: t.label,
+      mw,
+      readiness,
+      upgradeNeed,
+      processed:false
+    };
+  }
+
+  function projCard(p){
+    const div = document.createElement("div");
+    div.className = "proj";
+    const top = document.createElement("div");
+    top.className = "top";
+    top.innerHTML = `
+      <div>
+        <b>${p.label}</b> <span class="tag">${p.type}</span>
+        <div class="muted" style="font-size:12px;margin-top:2px;">
+          ${p.mw ? `${p.mw} MW` : "Enabler"} • readiness ${(p.readiness*100).toFixed(0)}% • upgrade need ${(p.upgradeNeed*100).toFixed(0)}%
+        </div>
+      </div>
+      <div class="tag">ID ${p.id}</div>
+    `;
+    div.appendChild(top);
+
+    const btns = document.createElement("div");
+    btns.className = "btns";
+
+    const actions = [
+      { key:"accept", label:"Accept", fn:()=>actAccept(p) },
+      { key:"defer", label:"Defer", fn:()=>actDefer(p) },
+      { key:"reject", label:"Reject", fn:()=>actReject(p) },
+      { key:"skin", label:"Require Security", fn:()=>actSecurity(p) },
+      { key:"cluster", label:"Cluster Study", fn:()=>actCluster(p) },
+    ];
+
+    actions.forEach(a=>{
+      const b = document.createElement("button");
+      b.textContent = a.label;
+      b.onmouseenter = (ev) => {
+        // consequence preview (directional)
+        const msg = ACTION_PREVIEWS[a.key] || "";
+        showTip(ev.clientX, ev.clientY, a.label + " (preview)", msg, "This is probabilistic. Welcome to power markets.");
+      };
+      b.onmousemove = (ev)=>{ if(tooltip.style.display==="block") showTip(ev.clientX, ev.clientY, tooltip.querySelector("h4")?.textContent||"", tooltip.querySelector("p")?.textContent||"", tooltip.querySelector(".small")?.textContent||""); };
+      b.onmouseleave = hideTip;
+
+      b.onclick = ()=> { if(!state.over && !p.processed) { const before = { ...state.meters }; a.fn(); const after = { ...state.meters }; explainFromDeltas(a.label, p, before, after); p.processed=true; render(); if (state.queue.length===1 && p.id==="PRACTICE") {
+          const next = document.getElementById("nextBtn");
+          if (next) next.disabled = false;
+          addLog("Practice move complete. Read the explanation, then click Next quarter to start the real chaos.", "good");
+          try { document.getElementById("whyBtn").click(); } catch(e) {}
+        } } };
+      btns.appendChild(b);
+    });
+
+    div.appendChild(btns);
+    return div;
+  }
+
+  // Actions
+  function actAccept(p){
+    const R = ruleset();
+    // Accepting load without readiness/upgrade clarity increases risk + backlog + ratepayer exposure
+    const isLoad = (p.type==="DC"||p.type==="IND");
+    const relHit = isLoad ? (10*p.upgradeNeed)*R.acceptLoadRiskFactor : -4;
+    const backHit = (8*(1 - p.readiness))*R.acceptLoadBackFactor;
+    const rateHit = isLoad ? 6*p.upgradeNeed : 2;
+    const growHit = isLoad ? 8 : 3;
+
+    meterDelta({ rel: relHit, back: backHit, rate: rateHit, grow: growHit, pol: 2 });
+    addLog(`Accepted ${p.label} (${p.mw ? p.mw+" MW" : "enabler"}).`, "");
+
+    // Served MW shows up with a lag if readiness is decent; pre-CIFP has worse milestone churn
+    if (p.mw) {
+      const connectChance = Math.max(0.05, Math.min(0.95, p.readiness - 0.10*(R.milestonePenalty-1)));
+      state.pending.push({
+        in: 2,
+        desc: `${p.label} (${p.mw} MW) interconnection outcome`,
+        apply: ()=> {
+          if (Math.random() < connectChance) {
+            state.servedMW += p.mw;
+            meterDelta({ grow:+4, pol:-2, back:-4 });
+            addLog(`Interconnection achieved: ${p.mw} MW online.`, "good");
+          } else {
+            meterDelta({ back:+6*R.milestonePenalty, pol:+4, rate:+2 });
+            addLog(`Project stalled: permits/financing slipped. Queue still clogged.`, "danger");
+          }
+        }
+      });
+    }
+  }
+
+  function actDefer(p){
+    meterDelta({ back:+3, pol:+1, rel:-2 });
+    addLog(`Deferred ${p.label}. Kicked the can. The can is now on your calendar.`, "muted");
+  }
+
+  function actReject(p){
+    meterDelta({ rel:-4, back:-3, rate:-2, grow:-6, pol:+3 });
+    addLog(`Rejected ${p.label}. Somewhere, a governor is drafting an op-ed.`, "danger");
+  }
+
+  function actSecurity(p){
+    const R = ruleset();
+    const back = - (R.securityBackReductionFactor * (p.readiness));
+    const rate = - (R.securityRateReduction);
+    const pol = +2;
+    meterDelta({ back: back, rate: rate, pol: pol, rel:-1, grow:+1 });
+    addLog(`Required financial security for ${p.label}. Faster studies, less free-riding.`, "good");
+  }
+
+  function actCluster(p){
+    const R = ruleset();
+    meterDelta({ back:-4, rel:+2, pol:+2, rate:+2 });
+    addLog(`Moved ${p.label} into a cluster study. Efficient… and loudly litigated.`, "");
+    state.pending.push({
+      in: 3,
+      desc: "Cluster study results land",
+      apply: ()=> {
+        meterDelta({ back: -Math.round(8*R.clusterBenefit), rel:-4, rate:-3, pol:-2 });
+        addLog(`Cluster results landed: upgrades standardized; timeline improved.`, "good");
+      }
+    });
+  }
+
+  function randomEvent(){
+    // Roughly every other quarter
+    if (Math.random() < 0.55) return null;
+    return EVENTS[rint(0, EVENTS.length-1)];
+  }
+
+  function applyEvent(e){
+    const banner = document.getElementById("eventBanner");
+    banner.style.display = "block";
+    banner.innerHTML = `<b>📰 ${e.title}</b><div class="muted">${e.text}</div><div class="impact">Impact this quarter: ${fmtDelta(e.delta)}</div>`;
+    meterDelta(e.delta);
+    addLog(`${e.title} — ${e.text}`, "muted");
+  }
+
+  function fmtDelta(d){
+    const order = ["rel","back","rate","grow","pol"];
+    const nice = {rel:"Reliability", back:"Backlog", rate:"Ratepayer", grow:"Growth", pol:"Politics"};
+    return order.filter(k=>d[k]).map(k=>{
+      const v = d[k];
+      return `${nice[k]} ${v>0?"+":""}${Math.round(v)}`;
+    }).join(" • ");
+  }
+
+  function nextQuarter(){
+    if (state.over) return;
+
+    const before = { ...state.meters };
+    const beforeServed = state.servedMW;
+
+    // apply pending effects
+    state.pending.forEach(e=> e.in--);
+    const due = state.pending.filter(e=> e.in<=0);
+    state.pending = state.pending.filter(e=> e.in>0);
+    due.forEach(e=> e.apply());
+
+    // new quarter event
+    const banner = document.getElementById("eventBanner");
+    banner.style.display = "none";
+    const ev = randomEvent();
+    if (ev) applyEvent(ev);
+
+    // generate new arrivals (skew toward load)
+    state.queue = [];
+    const n = rint(3,5);
+    for (let i=0;i<n;i++){
+      const p = genProject();
+      if (Math.random() < 0.55) {
+        p.type = (Math.random()<0.7)?"DC":"IND";
+        p.label = p.type==="DC"?"Data Center Load":"Industrial Load";
+        p.mw = rint(150,1400);
+        p.readiness = rfloat(0.2,0.85);
+        p.upgradeNeed = rfloat(0.25,0.95);
+      }
+      state.queue.push(p);
+    }
+
+    // background drift
+    meterDelta({ back:+2, pol:+1 });
+    if (state.meters.back > 70) meterDelta({ rel:+4 });
+
+    // loss conditions
+    if (state.meters.rel >= 95) return endGame("Reliability event triggered. The grid did the thing everyone begged it not to do.");
+    if (state.meters.pol >= 95) return endGame("Political override. Congratulations, you’ve been replaced by a press conference.");
+    if (state.meters.back >= 98) return endGame("Queue gridlock. Nothing connects before your grandkids retire.");
+
+    // record deltas for recap
+    const after = { ...state.meters };
+    const delta = {};
+    for (const k of Object.keys(after)) delta[k] = clamp(after[k] - before[k]); // already clamped, but fine
+    state.lastQuarterDeltas = {
+      metersDelta: {
+        rel: after.rel - before.rel,
+        back: after.back - before.back,
+        rate: after.rate - before.rate,
+        grow: after.grow - before.grow,
+        pol: after.pol - before.pol
+      },
+      servedDelta: state.servedMW - beforeServed
+    };
+
+    // advance round
+    state.round++;
+    if (state.round > roundMax && !state.over) {
+      return finishGame();
+    } else {
+      addLog(`Quarter ${state.round-1} closed. New requests incoming.`, "muted");
+      showRecap();
+      render();
+    }
+  }
+
+  function finishGame(){
+    const t = role().targets;
+    const win = state.servedMW >= t.served && state.meters.rel < t.relMax && state.meters.rate < t.rateMax && state.meters.pol < t.polMax;
+    if (win) {
+      endGame(`✅ ${role().flavorWin} (Role: ${role().name})`);
+    } else {
+      endGame(`❌ ${role().flavorLose} (Role: ${role().name})`);
+    }
+  }
+
+  
+  // Explain-last-move system (new-grad friendly)
+  function setLastMoveExplain(title, lead, htmlBody){
+    state.lastExplain = { title, lead, htmlBody };
+    const btn = document.getElementById("whyBtn");
+    if (btn) btn.disabled = false;
+  }
+
+  function explainFromDeltas(actionName, project, before, after){
+    const d = {
+      rel: after.rel - before.rel,
+      back: after.back - before.back,
+      rate: after.rate - before.rate,
+      grow: after.grow - before.grow,
+      pol: after.pol - before.pol,
+    };
+    const up = (x)=> x>0 ? `+${x}` : `${x}`;
+    const p = project || { label:"(system)", mw:0, readiness:0, upgradeNeed:0 };
+
+    let why = [];
+    if (actionName === "Accept") {
+      if (p.type === "DC" || p.type === "IND") {
+        why.push(`You accepted <b>new load</b> before upgrades are fully known/paid for. That tends to push <b>Reliability</b> and <b>Backlog</b> up in the short run.`);
+        if (p.upgradeNeed > 0.6) why.push(`This project had a <b>high upgrade need</b>, so cost risk leaks toward <b>ratepayers</b> unless you require security.`);
+        if (p.readiness < 0.45) why.push(`Readiness was low — so the queue absorbs study work now, but the project may stall later (classic fantasy-tax).`);
+      } else {
+        why.push(`Accepting supply-side or enabling work can lower reliability risk (more electrons / more wires), but still adds process overhead.`);
+      }
+    }
+    if (actionName === "Defer") {
+      why.push(`Deferring reduces near-term risk (you’re not committing), but it usually increases <b>Backlog</b> and <b>Politics</b> because stakeholders hate uncertainty.`);
+    }
+    if (actionName === "Reject") {
+      why.push(`Rejecting is the cleanest way to protect reliability/backlog… and the fastest way to lose economic growth (and earn angry phone calls).`);
+    }
+    if (actionName === "Require Security") {
+      why.push(`Security (deposits/milestones) is CIFP’s big move: it filters out speculation and shifts upgrade risk away from ratepayers.`);
+      if (ruleset().key === "pre") why.push(`Under <b>Pre-CIFP</b> rules, security is weaker — so the same action buys you less cleanup.`);
+    }
+    if (actionName === "Cluster Study") {
+      why.push(`Cluster studies trade <b>short-term pain</b> (coordination + politics) for <b>long-term efficiency</b> (standardized upgrades, fewer duplicative studies).`);
+    }
+
+    const body = `
+      <div style="margin-bottom:10px;"><b>${p.label}</b> ${p.mw?`(${p.mw} MW)`:""} • readiness ${(p.readiness*100).toFixed(0)}% • upgrade need ${(p.upgradeNeed*100).toFixed(0)}%</div>
+      <div class="muted" style="margin-bottom:10px;">Meter deltas from your last click: Rel <b>${up(d.rel)}</b>, Backlog <b>${up(d.back)}</b>, Ratepayer <b>${up(d.rate)}</b>, Growth <b>${up(d.grow)}</b>, Politics <b>${up(d.pol)}</b></div>
+      <div>${why.map(x=>`<div style="margin:6px 0;">• ${x}</div>`).join("")}</div>
+    `;
+
+    setLastMoveExplain(
+      `${actionName} → ${p.label}`,
+      `You clicked “${actionName}”. Here’s what moved and why (in plain English).`,
+      body
+    );
+  }
+
+  // Why button + modal
+  const whyModal = document.getElementById("whyModal");
+  document.getElementById("whyBtn").onclick = ()=>{
+    const ex = state.lastExplain;
+    if (!ex) return;
+    document.getElementById("whyLead").textContent = ex.lead;
+    document.getElementById("whyBody").innerHTML = ex.htmlBody;
+    openModal(whyModal);
+  };
+  document.getElementById("whyCloseBtn").onclick = ()=> closeModal(whyModal);
+
+  // Practice round
+  const PRACTICE_KEY = "cifp_game_practice_done_v1";
+  const practiceModal = document.getElementById("practiceModal");
+  function startPractice(){
+    state.practice = true;
+    state.round = 1;
+    state.servedMW = 0;
+    state.meters = { rel:20, back:25, rate:15, grow:30, pol:10 };
+    state.pending = [];
+    state.over = false;
+  }
+
+
+  function showResults(finalMsg){
+    const r = role();
+    const R = ruleset();
+    document.getElementById("resultsLead").textContent = `${finalMsg} • Role: ${r.name} • Rules: ${R.name}`;
+    const m = state.meters;
+    const verdict = finalMsg.startsWith("✅") ? "WIN" : "LOSE";
+    const card = `
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
+        <div><b>Queue Boss: PJM CIFP</b> <span class="badge">${verdict}</span></div>
+        <div class="muted">a game by Prashant Khorana</div>
+      </div>
+      <div style="margin-top:8px;" class="muted">Role: <b>${r.name}</b> • Rules: <b>${R.name}</b> • Quarters played: <b>${Math.min(state.round, roundMax)}</b></div>
+      <div class="resultGrid">
+        <div class="cardMini"><div class="muted">Load connected</div><div style="font-size:20px;font-weight:900;">${state.servedMW} MW</div></div>
+        <div class="cardMini"><div class="muted">Backlog</div><div style="font-size:20px;font-weight:900;">${m.back}</div></div>
+        <div class="cardMini"><div class="muted">Reliability</div><div style="font-size:20px;font-weight:900;">${m.rel}</div></div>
+        <div class="cardMini"><div class="muted">Ratepayer exposure</div><div style="font-size:20px;font-weight:900;">${m.rate}</div></div>
+      </div>
+      <div class="callout">
+        <div><b>What this teaches:</b> interconnection is risk allocation. CIFP-style deposits + milestones reduce fantasy and speed up the projects that can actually show up.</div>
+      </div>
+    `;
+    document.getElementById("resultsCard").innerHTML = card;
+    openModal(document.getElementById("resultsModal"));
+  }
+
+  document.getElementById("resultsCloseBtn").onclick = ()=> closeModal(document.getElementById("resultsModal"));
+  document.getElementById("copyResultsBtn").onclick = async ()=>{
+    const text = `Queue Boss: PJM CIFP (${role().name} / ${ruleset().name})\nResult: ${document.getElementById("resultsLead").textContent}\nLoad connected: ${state.servedMW} MW\nMeters: Rel ${state.meters.rel}, Backlog ${state.meters.back}, Ratepayer ${state.meters.rate}, Growth ${state.meters.grow}, Politics ${state.meters.pol}\n— a game by Prashant Khorana`;
+    try { await navigator.clipboard.writeText(text); addLog("Results copied to clipboard.", "good"); } catch(e){ addLog("Copy failed (browser blocked clipboard).", "danger"); }
+  };
+  document.getElementById("downloadResultsBtn").onclick = ()=>{
+    const text = `Queue Boss: PJM CIFP\nRole: ${role().name}\nRules: ${ruleset().name}\nLoad connected: ${state.servedMW} MW\nMeters: Rel ${state.meters.rel}, Backlog ${state.meters.back}, Ratepayer ${state.meters.rate}, Growth ${state.meters.grow}, Politics ${state.meters.pol}\n\n${document.getElementById("resultsLead").textContent}\n\n— a game by Prashant Khorana\n`;
+    const blob = new Blob([text], {type:"text/plain"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "cifp_game_results.txt";
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 500);
+  };
+
+
+function endGame(msg){
+    state.over = true;
+    document.getElementById("status").innerHTML = `<span class="danger">${msg}</span>`;
+    addLog(msg, "danger");
+    showResults(msg);
+    render();
+  }
+
+  function render(){
+    const q = document.getElementById("queue");
+    q.innerHTML = "";
+    state.queue.forEach(p => q.appendChild(projCard(p)));
+    renderMeters();
+    renderPending();
+
+    const r = role();
+    const R = ruleset();
+    if (!state.over) {
+      document.getElementById("status").innerHTML =
+        `Role: <b>${r.name}</b> • Rules: <b>${R.name}</b> • Win targets: <span class="tag">${r.targets.served} MW</span> <span class="tag">Rel &lt; ${r.targets.relMax}</span> <span class="tag">Rate &lt; ${r.targets.rateMax}</span>`;
+    }
+  }
+
+  // Meter tooltips
+  document.querySelectorAll(".meter").forEach(el=>{
+    el.addEventListener("mouseenter",(ev)=>{
+      const k = el.getAttribute("data-meter");
+      const tip = METER_TOOLTIPS[k];
+      if (!tip) return;
+      showTip(ev.clientX, ev.clientY, tip.title, tip.body, tip.small);
+    });
+    el.addEventListener("mousemove",(ev)=>{
+      const k = el.getAttribute("data-meter");
+      const tip = METER_TOOLTIPS[k];
+      if (!tip) return;
+      showTip(ev.clientX, ev.clientY, tip.title, tip.body, tip.small);
+    });
+    el.addEventListener("mouseleave", hideTip);
+  });
+
+  // Help modal controls
+  const helpModal = document.getElementById("helpModal");
+  const tutModal = document.getElementById("tutModal");
+  const recapModal = document.getElementById("recapModal");
+  function openModal(m){ m.style.display="flex"; }
+  function closeModal(m){ m.style.display="none"; clearHighlights(); }
+
+  function clearHighlights(){
+    ["cardDashboard","cardProjects","cardNews","controls"].forEach(id=>{
+      document.getElementById(id)?.classList.remove("highlight");
+    });
+  }
+
+  document.getElementById("helpBtn").onclick = ()=> openModal(helpModal);
+  document.getElementById("closeHelpBtn").onclick = ()=> closeModal(helpModal);
+
+  // Keyboard shortcuts
+  window.addEventListener("keydown",(e)=>{
+    if (e.key === "?") {
+      if (helpModal.style.display==="flex") closeModal(helpModal);
+      else openModal(helpModal);
+    }
+    if (e.key === "Escape") {
+      [helpModal, tutModal, recapModal].forEach(m=>{ if(m.style.display==="flex") closeModal(m); });
+      hideTip();
+    }
+  });
+
+  
+  document.getElementById("practiceStartBtn").onclick = ()=>{
+    closeModal(practiceModal);
+    try { localStorage.setItem(PRACTICE_KEY, "1"); } catch(e) {}
+    // Reset to a safe single-project scenario
+    state.round = 1;
+    state.servedMW = 0;
+    state.meters = { rel:20, back:25, rate:15, grow:30, pol:10 };
+    state.pending = [];
+    state.over = false;
+    state.lastExplain = null;
+    const btn = document.getElementById("whyBtn");
+    if (btn) btn.disabled = true;
+    const next = document.getElementById("nextBtn");
+    if (next) next.disabled = true;
+
+    // One curated project (data center) so the lesson lands
+    state.queue = [{
+      id: "PRACTICE",
+      type: "DC",
+      label: "Practice: Data Center Load",
+      mw: 600,
+      readiness: 0.45,
+      upgradeNeed: 0.75,
+      processed: false
+    }];
+    addLog("Practice round started: one 600 MW data center request. Make one move.", "muted");
+    render();
+  };
+  document.getElementById("practiceSkipBtn").onclick = ()=>{
+    closeModal(practiceModal);
+    try { localStorage.setItem(PRACTICE_KEY, "1"); } catch(e) {}
+  };
+
+// Tutorial
+  const tut = [
+    { title:"1) Your job", body:"You’re triaging interconnection requests. Serving load is good. Serving fantasy is expensive. Your meters track the tradeoffs.", highlight:"cardDashboard" },
+    { title:"2) Projects & actions", body:"Each quarter brings new projects. Hover the buttons to preview consequences. Some impacts are delayed—watch the 'Pending consequences' panel.", highlight:"cardProjects" },
+    { title:"3) Stakeholders", body:"Change your ROLE to see how incentives shift. Same grid, different win conditions. (That’s most meetings.)", highlight:"controls" },
+    { title:"4) CIFP toggle", body:"Switch between pre- and post-CIFP rules. Pre-CIFP is looser (more churn, more backlog). Post-CIFP makes deposits/milestones bite harder.", highlight:"modeBtn" },
+  ];
+  let tutIdx = 0;
+
+  function runTutorial(){
+    tutIdx = 0;
+    showTutStep();
+    openModal(tutModal);
+  }
+  function showTutStep(){
+    clearHighlights();
+    const step = tut[tutIdx];
+    document.getElementById("tutTitle").textContent = step.title;
+    document.getElementById("tutBody").textContent = step.body;
+    const hl = document.getElementById(step.highlight);
+    if (hl) hl.classList.add("highlight");
+    document.getElementById("tutNextBtn").textContent = (tutIdx === tut.length-1) ? "Done" : "Next";
+  }
+
+  document.getElementById("startTutorialBtn").onclick = ()=>{
+    closeModal(helpModal);
+    runTutorial();
+  };
+  document.getElementById("tutSkipBtn").onclick = ()=> closeModal(tutModal);
+  document.getElementById("tutNextBtn").onclick = ()=>{
+    if (tutIdx >= tut.length-1) return closeModal(tutModal);
+    tutIdx++;
+    showTutStep();
+  };
+
+  // Recap
+  function insightLines(){
+    const d = state.lastQuarterDeltas;
+    if (!d) return ["No data yet."];
+    const lines = [];
+    const md = d.metersDelta;
+    if (d.servedDelta > 0) lines.push(`You connected <b>${d.servedDelta} MW</b> this quarter. (Progress feels great. Now pay for it.)`);
+    if (md.back > 4) lines.push(`Backlog rose meaningfully. That’s future delay + future reliability risk.`);
+    if (md.rate > 3) lines.push(`Ratepayer exposure increased — you shifted upgrade risk onto the wrong people.`);
+    if (md.rel > 3) lines.push(`Reliability risk ticked up. Too much uncertainty / too many upgrades unpaid.`);
+    if (md.pol > 3) lines.push(`Political heat climbed. Someone is warming up a microphone.`);
+    if (!lines.length) lines.push(`Quiet quarter. In PJM terms, that’s a miracle.`);
+    return lines.slice(0,3);
+  }
+
+  function showRecap(){
+    const d = state.lastQuarterDeltas;
+    if (!d) return;
+    document.getElementById("recapLead").textContent =
+      `Quarter ${state.round-1} results for ${role().name} under ${ruleset().name}.`;
+    const box = document.getElementById("recapBullets");
+    box.innerHTML = "";
+    insightLines().forEach(s=>{
+      const div = document.createElement("div");
+      div.className = "callout";
+      div.innerHTML = `<div>${s}</div>`;
+      box.appendChild(div);
+    });
+    openModal(recapModal);
+  }
+  document.getElementById("recapCloseBtn").onclick = ()=> closeModal(recapModal);
+
+  // Role + mode controls
+  const roleSel = document.getElementById("roleSel");
+  roleSel.onchange = ()=>{
+    state.roleKey = roleSel.value;
+    addLog(`Role changed: ${role().name}. Win conditions updated.`, "muted");
+    render();
+  };
+
+  const modeBtn = document.getElementById("modeBtn");
+  function syncModeBtn(){
+    const isPost = state.rulesetKey === "post";
+    modeBtn.setAttribute("aria-pressed", isPost ? "true" : "false");
+    modeBtn.textContent = isPost ? "Post-CIFP rules" : "Pre-CIFP rules";
+  }
+  modeBtn.onclick = ()=>{
+    state.rulesetKey = (state.rulesetKey === "post") ? "pre" : "post";
+    syncModeBtn();
+    addLog(`Ruleset toggled: ${ruleset().name}.`, "muted");
+    render();
+  };
+  syncModeBtn();
+
+  // Next quarter
+  document.getElementById("nextBtn").onclick = nextQuarter;
+
+  // Auto-open help on first load (and "don't show again")
+  const AUTO_KEY = "cifp_game_auto_help_v2";
+  function maybeAutoHelp(){
+    const v = localStorage.getItem(AUTO_KEY);
+    if (v === "no") return;
+    openModal(helpModal);
+  }
+  // add "Don't show again" via a small checkbox in help modal (quick patch)
+  const helpActions = helpModal.querySelector(".actions");
+  const dont = document.createElement("label");
+  dont.style.marginRight = "auto";
+  dont.style.display = "inline-flex";
+  dont.style.alignItems = "center";
+  dont.style.gap = "8px";
+  dont.innerHTML = `<input id="dontShow" type="checkbox" /> <span class="muted">Don’t show on launch</span>`;
+  helpActions.prepend(dont);
+  document.getElementById("dontShow").addEventListener("change",(e)=>{
+    localStorage.setItem(AUTO_KEY, e.target.checked ? "no" : "yes");
+  });
+
+  // init
+  // Offer a one-move practice round for first-time players
+  try {
+    if (!localStorage.getItem(PRACTICE_KEY)) {
+      openModal(practiceModal);
+    }
+  } catch(e) {}
+
+  addLog("You’re running PJM’s interconnection world in a large-load boom. Choose wisely.", "muted");
+  state.queue = Array.from({length:4}, genProject);
+  render();
+  maybeAutoHelp();
+})();
+</script>
+</body>
+</html>
